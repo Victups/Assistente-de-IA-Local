@@ -65,17 +65,18 @@ watch(
       </div>
 
       <template v-else>
-        <ChatMessage
-          v-for="item in messages"
-          :key="item.id"
-          :role="item.role"
-          :content="item.content"
-        />
+          <ChatMessage
+            v-for="item in messages"
+            :key="item.id"
+            :role="item.role"
+            :content="item.content"
+            :transcription-source="item.transcriptionSource"
+          />
 
-        <ChatLoading
-          v-if="loading || uploading"
-          :label="uploading ? 'Processando arquivo...' : 'O assistente está pensando...'"
-        />
+          <ChatLoading
+            v-if="loading || uploading"
+            :label="uploading ? 'Transcrevendo...' : 'O assistente está pensando...'"
+          />
       </template>
     </div>
 

@@ -9,7 +9,17 @@ defineProps({
     type: String,
     required: true,
   },
+  transcriptionSource: {
+    type: String,
+    default: null,
+    validator: (value) => !value || ['voice', 'video'].includes(value),
+  },
 })
+
+const badgeLabel = {
+  voice: 'Transcrição de voz',
+  video: 'Transcrição de vídeo',
+}
 </script>
 
 <template>
@@ -25,6 +35,16 @@ defineProps({
           size="18"
         />
         <v-icon
+          v-else-if="transcriptionSource === 'voice'"
+          icon="mdi-microphone"
+          size="18"
+        />
+        <v-icon
+          v-else-if="transcriptionSource === 'video'"
+          icon="mdi-video"
+          size="18"
+        />
+        <v-icon
           v-else
           icon="mdi-account"
           size="18"
@@ -32,8 +52,13 @@ defineProps({
       </div>
 
       <div class="message-body">
-        <div class="message-label">
-          {{ role === 'user' ? 'Você' : 'Assistente' }}
+        <div class="message-header">
+          <span class="message-label">
+            {{ role === 'user' ? 'Você' : 'Assistente' }}
+          </span>
+          <span v-if="transcriptionSource" class="voice-badge">
+            {{ badgeLabel[transcriptionSource] }}
+          </span>
         </div>
         <div class="message-content text-pre-wrap">
           {{ content }}
@@ -91,11 +116,26 @@ defineProps({
   min-width: 0;
 }
 
+.message-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.375rem;
+  flex-wrap: wrap;
+}
+
 .message-label {
   font-size: 0.8125rem;
   font-weight: 600;
   color: #ffffff !important;
-  margin-bottom: 0.375rem;
+}
+
+.voice-badge {
+  font-size: 0.75rem;
+  color: var(--chat-text-muted);
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.25rem;
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .message-content {

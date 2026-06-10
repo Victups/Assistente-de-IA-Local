@@ -6,12 +6,32 @@ defineProps({
     type: String,
     default: 'Assistente de IA Local',
   },
+  conversations: {
+    type: Array,
+    default: () => [],
+  },
+  currentConversationId: {
+    type: String,
+    default: null,
+  },
 })
 
-const emit = defineEmits(['new-chat'])
+const emit = defineEmits(['new-chat', 'select-conversation', 'delete-conversation'])
 
 const drawer = ref(true)
 const rail = ref(false)
+
+function formatDate(value) {
+  if (!value) {
+    return ''
+  }
+
+  const date = new Date(value)
+  return date.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+  })
+}
 </script>
 
 <template>
@@ -20,7 +40,7 @@ const rail = ref(false)
     :rail="rail"
     permanent
     class="sidebar border-e"
-    width="260"
+    width="280"
   >
     <div class="sidebar-header">
       <v-btn
@@ -34,7 +54,41 @@ const rail = ref(false)
       </v-btn>
     </div>
 
-    <v-spacer />
+    <div v-if="!rail" class="history-section">
+      <div class="history-title">Histórico</div>
+
+      <div v-if="!conversations.length" class="history-empty">
+        Nenhuma conversa salva ainda.
+      </div>
+
+      <v-list
+        v-else
+        density="compact"
+        nav
+        class="history-list"
+      >
+        <v-list-item
+          v-for="conversation in conversations"
+          :key="conversation.id"
+          :title="conversation.title"
+          :subtitle="formatDate(conversation.updated_at)"
+          :active="conversation.id === currentConversationId"
+          rounded="lg"
+          class="history-item"
+          @click="emit('select-conversation', conversation.id)"
+        >
+          <template #append>
+            <v-btn
+              icon="mdi-delete-outline"
+              variant="text"
+              size="x-small"
+              class="delete-btn"
+              @click.stop="emit('delete-conversation', conversation.id)"
+            />
+          </template>
+        </v-list-item>
+      </v-list>
+    </div>
 
     <template #append>
       <div class="sidebar-footer">
@@ -93,6 +147,62 @@ const rail = ref(false)
 
 .new-chat-btn:hover {
   background: #2a2a2a !important;
+}
+
+.history-section {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+  padding: 0 0.5rem;
+}
+
+.history-title {
+  padding: 0.5rem 0.75rem 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--chat-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.history-empty {
+  padding: 0.75rem;
+  font-size: 0.8125rem;
+  color: var(--chat-text-muted);
+}
+
+.history-list {
+  overflow-y: auto;
+  flex: 1;
+  padding-bottom: 0.5rem;
+}
+
+.history-item {
+  color: var(--chat-text) !important;
+}
+
+.history-item :deep(.v-list-item-title) {
+  color: var(--chat-text) !important;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history-item :deep(.v-list-item-subtitle) {
+  color: var(--chat-text-muted) !important;
+  font-size: 0.75rem;
+}
+
+.delete-btn {
+  opacity: 0;
+  color: var(--chat-text-muted) !important;
+}
+
+.history-item:hover .delete-btn {
+  opacity: 1;
 }
 
 .sidebar-footer {

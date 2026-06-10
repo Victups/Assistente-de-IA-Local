@@ -6,6 +6,7 @@ class DocumentUploadResponse(BaseModel):
     filename: str = Field(..., description="Nome original do arquivo")
     doc_type: str = Field(..., description="Tipo do documento")
     preview: str = Field(..., description="Prévia do conteúdo extraído")
+    transcription: str = Field(..., description="Texto completo transcrito ou extraído")
     content_length: int = Field(..., description="Tamanho total do conteúdo em caracteres")
 
 

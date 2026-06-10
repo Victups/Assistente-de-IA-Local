@@ -13,5 +13,6 @@ def build_upload_response(document: StoredDocument) -> DocumentUploadResponse:
         filename=document.filename,
         doc_type=document.doc_type,
         preview=preview,
+        transcription=document.content,
         content_length=len(document.content),
     )
