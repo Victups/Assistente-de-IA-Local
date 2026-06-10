@@ -1,0 +1,32 @@
+:root {
+  --chat-bg: #212121;
+  --chat-sidebar: #171717;
+  --chat-user-row: #303030;
+  --chat-input-bg: #2f2f2f;
+  --chat-border: #424242;
+  --chat-text: #ffffff;
+  --chat-text-muted: #b0b0b0;
+  --chat-accent: #10a37f;
+  --chat-max-width: 48rem;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  min-height: 100%;
+  background: var(--chat-bg);
+  color: var(--chat-text);
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Garante texto branco nas mensagens */
+.message-content,
+.message-label {
+  color: #ffffff !important;
+}
