@@ -14,6 +14,10 @@ defineProps({
     type: String,
     default: null,
   },
+  creatingConversation: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 const emit = defineEmits(['new-chat', 'select-conversation', 'delete-conversation'])
@@ -44,10 +48,13 @@ function formatDate(value) {
   >
     <div class="sidebar-header">
       <v-btn
+        type="button"
         block
-        variant="outlined"
+        variant="flat"
         class="new-chat-btn"
         prepend-icon="mdi-plus"
+        :loading="creatingConversation"
+        :disabled="creatingConversation"
         @click="emit('new-chat')"
       >
         <span v-if="!rail">Nova conversa</span>
@@ -137,16 +144,22 @@ function formatDate(value) {
 }
 
 .new-chat-btn {
-  border-color: var(--chat-border) !important;
-  color: var(--chat-text) !important;
+  background: #2f2f2f !important;
+  color: #ffffff !important;
   text-transform: none;
   letter-spacing: normal;
   font-weight: 500;
   justify-content: flex-start;
+  border: 1px solid var(--chat-border) !important;
+  min-height: 2.75rem;
 }
 
-.new-chat-btn:hover {
-  background: #2a2a2a !important;
+.new-chat-btn:hover:not(:disabled) {
+  background: #3a3a3a !important;
+}
+
+.new-chat-btn:disabled {
+  opacity: 0.7;
 }
 
 .history-section {

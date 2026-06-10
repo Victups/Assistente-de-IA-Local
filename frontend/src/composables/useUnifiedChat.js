@@ -1,5 +1,5 @@
 import { onMounted, ref } from 'vue'
-import { extractErrorMessage } from '../services/api'
+import { checkBackendHealth, extractErrorMessage } from '../services/api'
 import { sendAudioChatMessage, uploadAudio } from '../services/audioService'
 import { sendChatMessage } from '../services/chatService'
 import {
@@ -62,17 +62,51 @@ export function useUnifiedChat() {
   const messages = ref([])
   const conversations = ref([])
   const currentConversationId = ref(null)
+  const historyEnabled = ref(false)
   const loading = ref(false)
   const uploading = ref(false)
   const initializing = ref(true)
+  const creatingConversation = ref(false)
+  const chatSessionKey = ref(crypto.randomUUID())
   const attachment = ref(null)
 
+  function resetChatView() {
+    messages.value = []
+    attachment.value = null
+    chatSessionKey.value = crypto.randomUUID()
+  }
+
+  async function detectHistorySupport() {
+    try {
+      const health = await checkBackendHealth()
+      return Array.isArray(health.features) && health.features.includes('history')
+    } catch {
+      return false
+    }
+  }
+
   async function refreshConversations() {
+    if (!historyEnabled.value) {
+      return
+    }
+
     conversations.value = await listConversations()
   }
 
-  async function persistMessage(message) {
+  async function ensureConversation() {
+    if (!historyEnabled.value) {
+      return
+    }
+
     if (!currentConversationId.value) {
+      const conversation = await createConversation()
+      currentConversationId.value = conversation.id
+      await refreshConversations()
+    }
+  }
+
+  async function persistMessage(message) {
+    if (!historyEnabled.value || !currentConversationId.value) {
       return null
     }
 
@@ -86,6 +120,7 @@ export function useUnifiedChat() {
     currentConversationId.value = conversation.id
     messages.value = conversation.messages.map(mapMessageFromApi)
     attachment.value = null
+    chatSessionKey.value = crypto.randomUUID()
 
     if (conversation.document_id && conversation.doc_type) {
       const context = await getConversationAttachment(conversationId)
@@ -103,16 +138,21 @@ export function useUnifiedChat() {
   }
 
   async function startNewConversation() {
+    if (!historyEnabled.value) {
+      currentConversationId.value = null
+      resetChatView()
+      return null
+    }
+
     const conversation = await createConversation()
     currentConversationId.value = conversation.id
-    messages.value = []
-    attachment.value = null
+    resetChatView()
     await refreshConversations()
     return conversation
   }
 
   async function selectConversation(conversationId) {
-    if (conversationId === currentConversationId.value) {
+    if (!historyEnabled.value || conversationId === currentConversationId.value) {
       return
     }
 
@@ -120,6 +160,10 @@ export function useUnifiedChat() {
   }
 
   async function removeConversation(conversationId) {
+    if (!historyEnabled.value) {
+      return
+    }
+
     await deleteConversation(conversationId)
     await refreshConversations()
 
@@ -144,6 +188,8 @@ export function useUnifiedChat() {
     messages.value.push(userMessage)
 
     try {
+      await ensureConversation()
+
       const savedUser = await persistMessage(userMessage)
       if (savedUser) {
         userMessage.id = savedUser.id
@@ -194,19 +240,21 @@ export function useUnifiedChat() {
     const config = UPLOAD_CONFIG[type]
     uploading.value = true
 
-    if (type !== 'audio' && type !== 'video') {
-      const userMessage = {
-        id: crypto.randomUUID(),
-        role: 'user',
-        content: `📎 ${config.label}: ${file.name}`,
-        isAttachment: true,
+    try {
+      await ensureConversation()
+
+      if (type !== 'audio' && type !== 'video') {
+        const userMessage = {
+          id: crypto.randomUUID(),
+          role: 'user',
+          content: `📎 ${config.label}: ${file.name}`,
+          isAttachment: true,
+        }
+
+        messages.value.push(userMessage)
+        await persistMessage(userMessage)
       }
 
-      messages.value.push(userMessage)
-      await persistMessage(userMessage)
-    }
-
-    try {
       const result = await config.uploadFn(file)
 
       attachment.value = {
@@ -218,11 +266,13 @@ export function useUnifiedChat() {
         preview: result.preview || '',
       }
 
-      await updateConversation(currentConversationId.value, {
-        document_id: result.document_id,
-        doc_type: result.doc_type,
-        attachment_filename: result.filename,
-      })
+      if (historyEnabled.value && currentConversationId.value) {
+        await updateConversation(currentConversationId.value, {
+          document_id: result.document_id,
+          doc_type: result.doc_type,
+          attachment_filename: result.filename,
+        })
+      }
 
       if (type === 'audio' || type === 'video') {
         const transcription = result.transcription || result.preview || ''
@@ -271,7 +321,7 @@ export function useUnifiedChat() {
   async function removeAttachment() {
     attachment.value = null
 
-    if (currentConversationId.value) {
+    if (historyEnabled.value && currentConversationId.value) {
       await updateConversation(currentConversationId.value, {
         document_id: null,
         doc_type: null,
@@ -281,13 +331,46 @@ export function useUnifiedChat() {
   }
 
   async function clearChat() {
-    await startNewConversation()
+    if (creatingConversation.value || loading.value || uploading.value) {
+      return
+    }
+
+    creatingConversation.value = true
+
+    try {
+      const hadContent = messages.value.length > 0 || attachment.value
+      resetChatView()
+
+      if (!historyEnabled.value) {
+        currentConversationId.value = null
+        return
+      }
+
+      if (!hadContent) {
+        return
+      }
+
+      await startNewConversation()
+    } catch {
+      historyEnabled.value = false
+      currentConversationId.value = null
+      resetChatView()
+    } finally {
+      creatingConversation.value = false
+    }
   }
 
   async function initialize() {
     initializing.value = true
 
     try {
+      historyEnabled.value = await detectHistorySupport()
+
+      if (!historyEnabled.value) {
+        resetChatView()
+        return
+      }
+
       await refreshConversations()
 
       if (conversations.value.length) {
@@ -295,6 +378,11 @@ export function useUnifiedChat() {
       } else {
         await startNewConversation()
       }
+    } catch {
+      historyEnabled.value = false
+      conversations.value = []
+      currentConversationId.value = null
+      resetChatView()
     } finally {
       initializing.value = false
     }
@@ -308,9 +396,12 @@ export function useUnifiedChat() {
     messages,
     conversations,
     currentConversationId,
+    historyEnabled,
+    chatSessionKey,
     loading,
     uploading,
     initializing,
+    creatingConversation,
     attachment,
     handleSend,
     handleFileUpload,

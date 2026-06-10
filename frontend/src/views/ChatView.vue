@@ -7,9 +7,11 @@ const {
   messages,
   conversations,
   currentConversationId,
+  chatSessionKey,
   loading,
   uploading,
   initializing,
+  creatingConversation,
   attachment,
   handleSend,
   handleFileUpload,
@@ -25,6 +27,7 @@ const {
     title="Assistente de IA Local"
     :conversations="conversations"
     :current-conversation-id="currentConversationId"
+    :creating-conversation="creatingConversation"
     @new-chat="clearChat"
     @select-conversation="selectConversation"
     @delete-conversation="removeConversation"
@@ -36,6 +39,7 @@ const {
 
     <ChatPanel
       v-else
+      :key="chatSessionKey"
       :messages="messages"
       :loading="loading"
       :uploading="uploading"
